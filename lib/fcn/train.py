@@ -82,11 +82,13 @@ sample = {'image_color': im_blob,
 
 def train(train_loader, background_loader, network, optimizer, epoch):
 
+    use_backgrounds = background_loader is not None
     batch_time = AverageMeter()
     losses = AverageMeter()
 
     epoch_size = len(train_loader)
-    enum_background = enumerate(background_loader)
+    if use_backgrounds:
+        enum_background = enumerate(background_loader)
     pixel_mean = torch.from_numpy(cfg.PIXEL_MEANS.transpose(2, 0, 1) / 255.0).float()
 
     # switch to train mode
@@ -115,22 +117,24 @@ def train(train_loader, background_loader, network, optimizer, epoch):
             vertex_targets = []
             vertex_weights = []
 
-        # add background
-        try:
-            _, background = next(enum_background)
-        except:
-            enum_background = enumerate(background_loader)
-            _, background = next(enum_background)
+        # randomize backgrounds if enabled
+        if use_backgrounds:
+            # add background
+            try:
+                _, background = next(enum_background)
+            except:
+                enum_background = enumerate(background_loader)
+                _, background = next(enum_background)
 
-        if inputs.size(0) != background['background_color'].size(0):
-            enum_background = enumerate(background_loader)
-            _, background = next(enum_background)
+            if inputs.size(0) != background['background_color'].size(0):
+                enum_background = enumerate(background_loader)
+                _, background = next(enum_background)
 
-        background_color = background['background_color'].cuda()
-        for j in range(inputs.size(0)):
-            is_syn = im_info[j, -1]
-            if is_syn or np.random.rand(1) > 0.5:
-                inputs[j] = mask[j] * inputs[j] + (1 - mask[j]) * background_color[j]
+            background_color = background['background_color'].cuda()
+            for j in range(inputs.size(0)):
+                is_syn = im_info[j, -1]
+                if is_syn or np.random.rand(1) > 0.5:
+                    inputs[j] = mask[j] * inputs[j] + (1 - mask[j]) * background_color[j]
 
         # visualization
         if cfg.TRAIN.VISUALIZE:
@@ -196,11 +200,11 @@ def train(train_loader, background_loader, network, optimizer, epoch):
 
 def _get_bb3D(extent):
     bb = np.zeros((3, 8), dtype=np.float32)
-    
+
     xHalf = extent[0] * 0.5
     yHalf = extent[1] * 0.5
     zHalf = extent[2] * 0.5
-    
+
     bb[:, 0] = [xHalf, yHalf, zHalf]
     bb[:, 1] = [-xHalf, yHalf, zHalf]
     bb[:, 2] = [xHalf, -yHalf, zHalf]
@@ -209,7 +213,7 @@ def _get_bb3D(extent):
     bb[:, 5] = [-xHalf, yHalf, -zHalf]
     bb[:, 6] = [xHalf, -yHalf, -zHalf]
     bb[:, 7] = [-xHalf, -yHalf, -zHalf]
-    
+
     return bb
 
 
@@ -235,7 +239,7 @@ def _vis_minibatch(inputs, background, labels, vertex_targets, sample, class_col
     else:
         m = 3
         n = 4
-    
+
     for i in range(im_blob.shape[0]):
         fig = plt.figure()
         start = 1
@@ -297,7 +301,7 @@ def _vis_minibatch(inputs, background, labels, vertex_targets, sample, class_col
             bb3d = _get_bb3D(extents[class_id, :])
             x3d = np.ones((4, 8), dtype=np.float32)
             x3d[0:3, :] = bb3d
-            
+
             # projection
             RT = np.zeros((3, 4), dtype=np.float32)
 
@@ -381,7 +385,7 @@ def _vis_minibatch(inputs, background, labels, vertex_targets, sample, class_col
             ax = fig.add_subplot(m, n, start)
             start += 1
             plt.imshow(center[0,:,:])
-            ax.set_title('center x') 
+            ax.set_title('center x')
 
             ax = fig.add_subplot(m, n, start)
             start += 1

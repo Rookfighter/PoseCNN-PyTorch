@@ -68,6 +68,18 @@ def parse_args():
     return args
 
 
+def set_isaac_sim_config(args):
+    # disable synthetic data
+    cfg.TRAIN.SYNTHESIZE = False
+    cfg.TRAIN.SYN_BACKGROUND_SPECIFIC = False
+    cfg.TRAIN.SYN_BACKGROUND_SUBTRACT_MEAN = False
+    cfg.TRAIN.SYN_SAMPLE_OBJECT = False
+    cfg.TRAIN.SYN_SAMPLE_POSE = False
+    cfg.TRAIN.SYN_BACKGROUND_RND = False
+    # disable pose regression (we have no points of the models)
+    cfg.TRAIN.POSE_REG = False
+
+
 if __name__ == '__main__':
     args = parse_args()
 
@@ -92,23 +104,30 @@ if __name__ == '__main__':
         num_workers = 0
     else:
         num_workers = 4
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=cfg.TRAIN.IMS_PER_BATCH, shuffle=True, 
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=cfg.TRAIN.IMS_PER_BATCH, shuffle=True,
         num_workers=num_workers, worker_init_fn=worker_init_fn)
     print('Use dataset `{:s}` for training'.format(dataset.name))
 
-    # background dataset
-    if cfg.TRAIN.SYN_BACKGROUND_SPECIFIC:
-        background_dataset = get_dataset(args.dataset_background_name)
-    else:
-        background_dataset = get_dataset('background_coco')
-    background_loader = torch.utils.data.DataLoader(background_dataset, batch_size=cfg.TRAIN.IMS_PER_BATCH,
-                                                    shuffle=True, num_workers=4)
+    if args.dataset_name == 'isaac_sim':
+        set_isaac_sim_config(dataset, args)
+
+    background_dataset = None
+    background_loader = None
+    if cfg.TRAIN.SYN_BACKGROUND_RND:
+        # background dataset
+        if cfg.TRAIN.SYN_BACKGROUND_SPECIFIC:
+            background_dataset = get_dataset(args.dataset_background_name)
+        else:
+            background_dataset = get_dataset('background_coco')
+        background_loader = torch.utils.data.DataLoader(background_dataset, batch_size=cfg.TRAIN.IMS_PER_BATCH,
+                                                        shuffle=True, num_workers=4)
 
     # overwrite intrinsics
     if len(cfg.INTRINSICS) > 0:
         K = np.array(cfg.INTRINSICS).reshape(3, 3)
         dataset._intrinsic_matrix = K
-        background_dataset._intrinsic_matrix = K
+        if background_dataset is not None:
+            background_dataset._intrinsic_matrix = K
         print(dataset._intrinsic_matrix)
 
     # output directory
@@ -155,7 +174,7 @@ if __name__ == '__main__':
     elif args.solver == 'sgd':
         optimizer = torch.optim.SGD(param_groups, cfg.TRAIN.LEARNING_RATE,
                                     momentum=cfg.TRAIN.MOMENTUM)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                         milestones=[m - args.startepoch for m in cfg.TRAIN.MILESTONES], gamma=cfg.TRAIN.GAMMA)
     cfg.epochs = args.epochs
 
