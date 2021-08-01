@@ -68,18 +68,6 @@ def parse_args():
     return args
 
 
-def set_isaac_sim_config(args):
-    # disable synthetic data
-    cfg.TRAIN.SYNTHESIZE = False
-    cfg.TRAIN.SYN_BACKGROUND_SPECIFIC = False
-    cfg.TRAIN.SYN_BACKGROUND_SUBTRACT_MEAN = False
-    cfg.TRAIN.SYN_SAMPLE_OBJECT = False
-    cfg.TRAIN.SYN_SAMPLE_POSE = False
-    cfg.TRAIN.SYN_BACKGROUND_RND = False
-    # disable pose regression (we have no points of the models)
-    cfg.TRAIN.POSE_REG = False
-
-
 if __name__ == '__main__':
     args = parse_args()
 
@@ -107,9 +95,6 @@ if __name__ == '__main__':
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=cfg.TRAIN.IMS_PER_BATCH, shuffle=True,
         num_workers=num_workers, worker_init_fn=worker_init_fn)
     print('Use dataset `{:s}` for training'.format(dataset.name))
-
-    if args.dataset_name == 'isaac_sim':
-        set_isaac_sim_config(dataset, args)
 
     background_dataset = None
     background_loader = None

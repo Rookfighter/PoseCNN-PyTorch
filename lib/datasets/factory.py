@@ -11,7 +11,10 @@ import datasets.ycb_object
 import datasets.ycb_self_supervision
 import datasets.dex_ycb
 import datasets.background
+from datasets.isaac_sim import IsaacSimDataset
 import numpy as np
+import os.path
+import fcn.config as cfg
 
 # ycb video dataset
 for split in ['train', 'val', 'keyframe', 'trainval', 'debug']:
@@ -49,6 +52,9 @@ for setup in ('s0', 's1', 's2', 's3'):
         name = 'dex_ycb_{}_{}'.format(setup, split)
         __sets[name] = (lambda setup=setup, split=split: datasets.DexYCBDataset(setup, split))
 
+
+# Isaac Sim dataset
+__sets['isaac_sim'] = lambda: IsaacSimDataset('Viewport', os.path.join(datasets.ROOT_DIR, 'data', 'isaac_sim'), cfg.TRAIN.CLASSES, np.array(cfg.TRAIN.SYMMETRY).astype(np.float32))
 
 def get_dataset(name):
     """Get an imdb (image database) by name."""

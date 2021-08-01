@@ -269,7 +269,7 @@ class YCBObject(data.Dataset, datasets.imdb):
         intensity = np.random.uniform(0.8, 2)
         light_color = intensity * np.random.uniform(0.9, 1.1, 3)
         cfg.renderer.set_light_color(light_color)
-            
+
         # rendering
         cfg.renderer.set_projection_matrix(width, height, fx, fy, px, py, znear, zfar)
         image_tensor = torch.cuda.FloatTensor(height, width, 4).detach()
@@ -391,7 +391,7 @@ class YCBObject(data.Dataset, datasets.imdb):
             x2d = np.matmul(self._intrinsic_matrix, np.matmul(RT, x3d))
             x2d[0, :] = np.divide(x2d[0, :], x2d[2, :])
             x2d[1, :] = np.divide(x2d[1, :], x2d[2, :])
-        
+
             gt_boxes[i, 0] = np.min(x2d[0, :])
             gt_boxes[i, 1] = np.min(x2d[1, :])
             gt_boxes[i, 2] = np.max(x2d[0, :])
@@ -541,7 +541,7 @@ class YCBObject(data.Dataset, datasets.imdb):
                 vertex_weights[3 * i + 0, y, x] = cfg.TRAIN.VERTEX_W_INSIDE
                 vertex_weights[3 * i + 1, y, x] = cfg.TRAIN.VERTEX_W_INSIDE
                 vertex_weights[3 * i + 2, y, x] = cfg.TRAIN.VERTEX_W_INSIDE
-        
+
         return vertex_targets, vertex_weights
 
 
