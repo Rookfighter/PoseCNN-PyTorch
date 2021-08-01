@@ -54,7 +54,7 @@ for setup in ('s0', 's1', 's2', 's3'):
 
 
 # Isaac Sim dataset
-__sets['isaac_sim'] = lambda: IsaacSimDataset('Viewport', os.path.join(datasets.ROOT_DIR, 'data', 'isaac_sim'), cfg.TRAIN.CLASSES, np.array(cfg.TRAIN.SYMMETRY).astype(np.float32))
+__sets['isaac_sim'] = lambda: IsaacSimDataset('Viewport', os.path.join(datasets.ROOT_DIR, 'data', 'isaac_sim'), cfg.TRAIN.CLASSES, np.array(cfg.TRAIN.SYMMETRY).astype(np.float32), cfg.TRAIN.SCALES_BASE[0])
 
 def get_dataset(name):
     """Get an imdb (image database) by name."""
