@@ -14,7 +14,7 @@ import datasets.background
 from datasets.isaac_sim import IsaacSimDataset
 import numpy as np
 import os.path
-import fcn.config as cfg
+from fcn.config import cfg
 
 # ycb video dataset
 for split in ['train', 'val', 'keyframe', 'trainval', 'debug']:
