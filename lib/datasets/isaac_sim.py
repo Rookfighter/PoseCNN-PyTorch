@@ -28,7 +28,6 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
         self._classes = [int(c) for c in classes]
 
         # 3D dimensions of each object class
-        self._extents = np.array([[10, 10, 10] for _ in self._classes], dtype=np.float32)
         self._symmetries = symmetries
         self._vertex_weight_inside = vertex_weight_inside
 
@@ -48,12 +47,13 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
         pose_blob = self.__load_poses(sample_name)
         bboxes_loose, bboxes_tight = self.__load_bboxes(sample_name)
         intrinsics = self.__load_intrinsics(sample_name)
+        mins, maxes, extents = self.__load_bbox3d(sample_name)
 
         image_info = np.array([image.shape[1], image.shape[2], 1.0, 1.0], dtype=np.float32)
 
         vertex_targets, vertex_weights = self._generate_vertex_targets(semantic_data, bboxes_tight, pose_blob)
 
-        return {
+        result = {
             'image_color': image,
             'image_depth': depth_xyz,
             'im_depth': depth,
@@ -62,15 +62,16 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
             'mask_depth': depth_mask,
             'meta_data': intrinsics,
             'poses': pose_blob,
-            'extents': self._extents,
+            'extents': extents,
             'points': np.zeros((self.num_classes, 0, 3), dtype=np.float32),
             'symmetry': self._symmetries,
             'gt_boxes': bboxes_tight,
             'im_info': image_info,
             'vertex_targets': vertex_targets,
             'vertex_weights': vertex_weights
-
         }
+
+        return result
 
     def __len__(self):
         return len(self._sample_names)
@@ -96,11 +97,13 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
         # scale to interval [0,1]
         depth /= 255.0
 
+        h, w = depth.shape
+
         # get mask for which depth fields are valid
-        depth_mask = (depth > 0.0).astype(np.float32)
+        depth_mask = (depth > 0.0).astype(np.float32).reshape(1, h, w)
 
         # TODO how to extract 3D coordinates for each pixel?
-        depth_xyz = np.zeros((depth.shape[0], depth.shape[1], 3), dtype=np.float32)
+        depth_xyz = np.zeros((3, depth.shape[0], depth.shape[1]), dtype=np.float32)
 
         # convert to cuda
         return torch.from_numpy(depth), \
@@ -128,7 +131,9 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
         # determine which parts of the image are segmented
         semantic_mask = (semantic_data != 0).reshape(h, w, 1).repeat(3, 2).transpose(2, 0, 1)
 
-        return semantic_mask, semantic_blob, semantic_data
+        return torch.from_numpy(semantic_mask), \
+            torch.from_numpy(semantic_blob), \
+            torch.from_numpy(semantic_data)
 
     def __load_poses(self, sample_name):
         pose_filename = os.path.join(self._pose_dir, f'{sample_name}.npy')
@@ -245,3 +250,18 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
                 vertex_weights[3 * i + 2, y, x] = self._vertex_weight_inside
 
         return vertex_targets, vertex_weights
+
+    def __load_bbox3d(self, sample_name):
+        filename = os.path.join(self._bbox3d_dir, f'{sample_name}.npy')
+
+        data = np.load(filename)
+
+        mins = np.zeros((self.num_classes, 3), dtype=np.float32)
+        maxes = np.zeros((self.num_classes, 3), dtype=np.float32)
+        cls = data[:, 0]
+
+        mins[cls, :] = data[:, 1:4]
+        maxes[cls, :] = data[:, 4:]
+        extents = maxes - mins
+
+        return mins, maxes, extents
