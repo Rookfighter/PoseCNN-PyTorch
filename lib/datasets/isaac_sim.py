@@ -21,9 +21,9 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
         self._semantic_dir = os.path.join(self._data_dir, self._viewport_name, 'semantic')
         self._instance_dir = os.path.join(self._data_dir, self._viewport_name, 'instance')
         self._camera_dir = os.path.join(self._data_dir, self._viewport_name, 'camera')
-        self._pose_dir = os.path.join(self._data_dir, self._viewport_name, 'poses')
-        self._bbox_loose_dir = os.path.join(self._data_dir, self._viewport_name, 'bbox_2d_loose')
-        self._bbox_tight_dir = os.path.join(self._data_dir, self._viewport_name, 'bbox_2d_tight')
+        self._pose_dir = os.path.join(self._data_dir, self._viewport_name, 'pose')
+        self._bbox2d_dir = os.path.join(self._data_dir, self._viewport_name, 'bbox2d')
+        self._bbox3d_dir = os.path.join(self._data_dir, self._viewport_name, 'bbox3d')
 
         self._classes = [int(c) for c in classes]
 
@@ -33,6 +33,8 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
 
         # iteration relevant information
         self._sample_names = [os.path.splitext(os.path.basename(p))[0] for p in os.listdir(self._rgb_dir)]
+
+        print('SAMPLES', len(self._sample_names))
 
     def __getitem__(self, index):
         '''
@@ -90,7 +92,7 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
         return torch.from_numpy(im)
 
     def __load_depth(self, sample_name):
-        filename = os.path.join(self._depth_dir, f'{sample_name}.png')
+        filename = os.path.join(self._depth_dir, f'{sample_name}_linear_raw.png')
 
         # read image
         depth = cv2.imread(filename, cv2.IMREAD_UNCHANGED).astype(np.float32)
@@ -137,7 +139,7 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
 
     def __load_poses(self, sample_name):
         pose_filename = os.path.join(self._pose_dir, f'{sample_name}.npy')
-        cam_filename = os.path.join(self._camera_dir, f'{sample_name}.npy')
+        cam_filename = os.path.join(self._camera_dir, f'{sample_name}_extrinsics.npy')
 
         pose_data = np.load(pose_filename)
         cam_tf = np.load(cam_filename)
@@ -169,32 +171,32 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
 
     def __load_bboxes(self, sample_name):
 
-        filename = os.path.join(self._bbox_tight_dir, f'{sample_name}.npy')
-        bbox_tight_data = np.load(filename, allow_pickle=True)
-        n, = bbox_tight_data.shape
+        filename = os.path.join(self._bbox2d_dir, f'{sample_name}_tight.npy')
+        bbox_tight_data = np.load(filename)
+        n, _ = bbox_tight_data.shape
 
         bbox_tight = np.zeros((self.num_classes, 5), dtype=np.float32)
 
         for i in range(n):
-            cls = bbox_tight_data[i][0]
-            bbox_tight[i, 0] = bbox_tight_data[i][6]
-            bbox_tight[i, 1] = bbox_tight_data[i][7]
-            bbox_tight[i, 2] = bbox_tight_data[i][8]
-            bbox_tight[i, 3] = bbox_tight_data[i][9]
+            cls = bbox_tight_data[i, 0]
+            bbox_tight[i, 0] = bbox_tight_data[i, 1]
+            bbox_tight[i, 1] = bbox_tight_data[i, 2]
+            bbox_tight[i, 2] = bbox_tight_data[i, 3]
+            bbox_tight[i, 3] = bbox_tight_data[i, 4]
             bbox_tight[i, 4] = cls
 
-        filename = os.path.join(self._bbox_loose_dir, f'{sample_name}.npy')
-        bbox_loose_data = np.load(filename, allow_pickle=True)
-        n, = bbox_loose_data.shape
+        filename = os.path.join(self._bbox2d_dir, f'{sample_name}_loose.npy')
+        bbox_loose_data = np.load(filename)
+        n, _ = bbox_loose_data.shape
 
         bbox_loose = np.zeros((self.num_classes, 5), dtype=np.float32)
 
         for i in range(n):
-            cls = bbox_loose_data[i][0]
-            bbox_loose[i, 0] = bbox_loose_data[i][6]
-            bbox_loose[i, 1] = bbox_loose_data[i][7]
-            bbox_loose[i, 2] = bbox_loose_data[i][8]
-            bbox_loose[i, 3] = bbox_loose_data[i][9]
+            cls = bbox_loose_data[i, 0]
+            bbox_loose[i, 0] = bbox_loose_data[i, 1]
+            bbox_loose[i, 1] = bbox_loose_data[i, 2]
+            bbox_loose[i, 2] = bbox_loose_data[i, 3]
+            bbox_loose[i, 3] = bbox_loose_data[i, 4]
             bbox_loose[i, 4] = cls
 
         return torch.from_numpy(bbox_loose), torch.from_numpy(bbox_tight)
@@ -258,7 +260,7 @@ class IsaacSimDataset(data.Dataset, datasets.imdb):
 
         mins = np.zeros((self.num_classes, 3), dtype=np.float32)
         maxes = np.zeros((self.num_classes, 3), dtype=np.float32)
-        cls = data[:, 0]
+        cls = data[:, 0].astype(np.int)
 
         mins[cls, :] = data[:, 1:4]
         maxes[cls, :] = data[:, 4:]
